@@ -21,7 +21,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-
+from sklearn.model_selection import GridSearchCV
 
 
 #-------------------------- CARGA E INICIO DEL PROCESO ------------------------------#
@@ -578,8 +578,46 @@ plt.savefig(ruta_graficos/"matriz_confusion_random_forest.png",
 plt.show()
 
 
+### Evaluación de hiperparámetros con GridSearchCV ###
+rf_clf = RandomForestClassifier(n_estimators=200,max_depth=None,random_state=42,n_jobs=-1)
 
+rf_pipeline = Pipeline(steps=[('preprocess', preprocessor),
+                             ('model', rf_clf)])
+rf_pipeline.fit(X_train_rf, y_train_rf)
 
+rf_base = RandomForestClassifier(random_state=42,n_jobs=-1)
+
+param_grid = {'model__n_estimators': [100, 200, 500],'model__max_depth': [None, 10, 20, 30]}
+
+# Construimos el pipeline definitivo para usar con GridSearchCV
+rf_pipeline = Pipeline(steps=[
+    ('preprocess', preprocessor),
+    ('model', rf_base)])
+
+# cv=5 -> usa validación cruzada de 5 folds
+grid_rf = GridSearchCV(estimator=rf_pipeline,
+                       param_grid=param_grid,
+                       cv=5,
+                       scoring='accuracy',
+                       n_jobs=-1)
+
+# Entrenamos el GridSearchCV: aquí se prueban todas las combinaciones y elegimos la mejor
+grid_rf.fit(X_train_rf, y_train_rf)
+
+print("Mejores parámetros:", grid_rf.best_params_)
+print("Mejor accuracy CV:", grid_rf.best_score_)
+
+# Extraemos el mejor modelo encontrado
+best_rf = grid_rf.best_estimator_
+
+# Predecimos sobre el conjunto de test
+y_pred_rf = best_rf.predict(X_test_rf)
+print("Accuracy en test:", accuracy_score(y_test_rf, y_pred_rf))
+print(classification_report(y_test_rf, y_pred_rf))
+
+param_grid = {'model__n_estimators': [100, 200, 500],
+              'model__max_depth': [None, 10, 20, 30],
+              'model__min_samples_leaf': [1, 2, 5]}
 
 
 
@@ -751,7 +789,6 @@ y_pred_rf = rf_pipeline.predict(X_test_rf)
 print("Accuracy en test:", accuracy_score(y_test_rf, y_pred_rf))
 print("\nClassification report:\n", classification_report(y_test_rf, y_pred_rf))
 print("\nMatriz de confusión:\n", confusion_matrix(y_test_rf, y_pred_rf))
-
 
 # Matriz de confusión gráfico 
 cm = confusion_matrix(y_test_rf, y_pred_rf)
